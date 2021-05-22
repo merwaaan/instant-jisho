@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Instant Jisho",
+  "version": "0.1",
+  "description": "Some Description",
+  "action": {
+    "default_title": "Popup",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "permissions": [
+  ],
+  "host_permissions": [
+    "https://jisho.org/api/*"
+  ]
+}
