@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Results from the API
+// Jisho API types
 
 export const JishoApiEntrySchema = z
   .object({
@@ -27,8 +27,18 @@ export const JishoApiEntrySchema = z
 
 export type JishoApiEntry = z.infer<typeof JishoApiEntrySchema>;
 
-export const JishoApiResponseSchema = z.object({
+const JishoApiResponseSchema = z.object({
   data: z.array(JishoApiEntrySchema)
 });
 
-export type JishoApiResponse = z.infer<typeof JishoApiResponseSchema>;
+// Fetches a word from Jisho
+
+export async function fetchWord(word: string): Promise<JishoApiEntry[]> {
+  const response = await fetch(`https://jisho.org/api/v1/search/words?keyword=${word}`);
+  const json = await response.json();
+
+  const validation = JishoApiResponseSchema.parse(json);
+
+  // TODO test error here
+  return validation.data;
+}
