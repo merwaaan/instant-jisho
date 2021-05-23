@@ -2,7 +2,7 @@ import { Box, Button, CircularProgress, Grid, Paper, Typography } from '@materia
 import ScopedCssBaseline from '@material-ui/core/ScopedCssBaseline';
 import { ArrowLeft, ArrowRight, ErrorOutline } from '@material-ui/icons';
 import { createPopper } from '@popperjs/core';
-import { fit, FuriganaMatch } from 'furigana';
+import { FuriganaMatch } from 'furigana';
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import root from 'react-shadow/material-ui';
@@ -14,7 +14,7 @@ import { entryToFurigana, entryToRomaji, JishoApiEntry } from './jisho';
 // App state
 
 type WordStateLoading = { type: 'loading' };
-type WordStateCompleted = { type: 'completed'; data: JishoApiEntry | null };
+type WordStateCompleted = { type: 'completed'; entry: JishoApiEntry | null };
 type WordStateFailed = { type: 'error'; message: string };
 
 type Word = {
@@ -160,7 +160,7 @@ document.addEventListener('mouseup', async () => {
     for (let [word, entry] of Object.entries(entries)) {
       const wordData = currentSearch?.words.find((t) => t.value === word);
       if (wordData) {
-        wordData.state = { type: 'completed', data: entry };
+        wordData.state = { type: 'completed', entry: entry };
       }
       // TODO handle error
     }
@@ -333,7 +333,16 @@ function WordPage(props: { word: Word; color: string }) {
   if (props.word.state.type === 'loading') {
     return (
       <Box m={4}>
-        <CircularProgress variant='indeterminate' style={{ color: props.color }} />
+        <Grid container direction='column' alignItems='center' spacing={3}>
+          <Grid item>
+            <Typography variant='body2' style={{ color: '#bbbbbb' }}>
+              Translating <span style={{ fontWeight: 'bold' }}>{props.word.value}</span>
+            </Typography>
+          </Grid>
+          <Grid item>
+            <CircularProgress variant='indeterminate' style={{ color: '#bbbbbb' }} />
+          </Grid>
+        </Grid>
       </Box>
     );
   } else if (props.word.state.type === 'error') {
@@ -342,31 +351,25 @@ function WordPage(props: { word: Word; color: string }) {
         <ErrorOutline />
       </Box>
     );
-  } else if (props.word.state.data === null) {
+  } else if (props.word.state.entry === null) {
     return (
       <Box m={4}>
-        <Typography variant='body1'>No results</Typography>
+        <Grid container direction='column' alignItems='center' spacing={2}>
+          <Grid item>
+            <Typography variant='body2' style={{ color: '#bbbbbb' }}>
+              No results for <span style={{ fontWeight: 'bold' }}>{props.word.value}</span>
+            </Typography>
+          </Grid>
+          <Grid item>
+            <span style={{ color: '#bbbbbb', fontFamily: 'monospace' }}>
+              {getKaomoji(props.word.value)}
+            </span>
+          </Grid>
+        </Grid>
       </Box>
     );
   } else {
-    const entry = props.word.state.data;
-
-    // Consider writing/reading pairs for the current slug
-
-    const readingsWritings = entry.japanese
-      .filter(
-        (j): j is { word: string; reading: string } =>
-          j.word !== undefined && j.reading !== undefined
-      )
-      .filter((j) => j.word === entry.slug);
-
-    // Generate furiganas from the writing/reading pairs
-
-    const allFuriganaMatches = readingsWritings
-      .map((rw) => fit(rw.word, rw.reading, { type: 'object', kanaReading: false }))
-      .filter((furi): furi is FuriganaMatch[] => furi !== null); // Filter out failures
-
-    const firstFuriganaMatches = allFuriganaMatches.length > 0 ? allFuriganaMatches[0] : null;
+    const entry = props.word.state.entry;
 
     // Ignore "Wikipedia definition" entries that are often redundant
 
@@ -382,7 +385,14 @@ function WordPage(props: { word: Word; color: string }) {
     return (
       <Box m={1}>
         <Grid container direction='column' spacing={1}>
-          <Grid item container direction='row' alignItems='baseline' spacing={4}>
+          <Grid
+            item
+            container
+            direction='row'
+            justify='space-around'
+            alignItems='baseline'
+            spacing={4}
+          >
             {/* Furigana */}
             <Grid item>
               <Furigana readings={furigana} />
@@ -475,7 +485,7 @@ function WordUnderline(props: {
         let width = rect.width - (i === props.ranges.length - 1 ? 2 : 0);
 
         const top = window.scrollY + rect.bottom + props.offset;
-        const heightMultiplier = props.selected ? 2.5 : 1.0;
+        const heightMultiplier = props.selected ? 3 : 1.0;
 
         return (
           <div
@@ -497,6 +507,8 @@ function WordUnderline(props: {
   );
 }
 
+// Colors
+
 const colors = ['#264653', '#2a9d8f', '#e9c46a', '#f4a261', '#e76f51'];
 
 function getColor(n: number, limit: number | undefined = undefined) {
@@ -505,6 +517,24 @@ function getColor(n: number, limit: number | undefined = undefined) {
 
 function mod(n: number, m: number) {
   return ((n % m) + m) % m;
+}
+
+// Kaomojis
+
+const kaomojis = [
+  '●︿●',
+  'ಠ_ಠ',
+  'ಠ▃ಠ',
+  '(˵¯͒⌢͗¯͒˵)',
+  '(;﹏;)',
+  '( ب_ب )',
+  '(⁎˃ᆺ˂)',
+  '.·´¯`(>▂<)´¯`·.'
+];
+
+function getKaomoji(word: string) {
+  const hash = Array.from(word).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return kaomojis[hash % kaomojis.length];
 }
 
 console.debug('Instant Jisho loaded');
