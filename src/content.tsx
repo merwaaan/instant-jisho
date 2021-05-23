@@ -9,12 +9,12 @@ import root from 'react-shadow/material-ui';
 // @ts-ignore (no type definitions)
 import TinySegmenter from 'tiny-segmenter';
 
-import { JishoApiEntry } from './jisho';
+import { entryToFurigana, entryToRomaji, JishoApiEntry } from './jisho';
 
 // App state
 
 type WordStateLoading = { type: 'loading' };
-type WordStateCompleted = { type: 'completed'; data: JishoApiEntry[] };
+type WordStateCompleted = { type: 'completed'; data: JishoApiEntry | null };
 type WordStateFailed = { type: 'error'; message: string };
 
 type Word = {
@@ -155,12 +155,12 @@ document.addEventListener('mouseup', async () => {
 
     // Update the state
 
-    const allEntries = response.entries as Record<string, JishoApiEntry[]>;
+    const entries = response.entries as Record<string, JishoApiEntry | null>;
 
-    for (let [word, entries] of Object.entries(allEntries)) {
+    for (let [word, entry] of Object.entries(entries)) {
       const wordData = currentSearch?.words.find((t) => t.value === word);
       if (wordData) {
-        wordData.state = { type: 'completed', data: entries };
+        wordData.state = { type: 'completed', data: entry };
       }
       // TODO handle error
     }
@@ -342,24 +342,31 @@ function WordPage(props: { word: Word; color: string }) {
         <ErrorOutline />
       </Box>
     );
-  } else if (props.word.state.data.length === 0) {
+  } else if (props.word.state.data === null) {
     return (
       <Box m={4}>
         <Typography variant='body1'>No results</Typography>
       </Box>
     );
   } else {
-    const entry = props.word.state.data[0];
+    const entry = props.word.state.data;
 
-    // Generate furiganas
+    // Consider writing/reading pairs for the current slug
 
-    const readingsWritings = entry.japanese.filter(
-      (j) => j.word && j.reading && j.word === entry.slug
-    );
+    const readingsWritings = entry.japanese
+      .filter(
+        (j): j is { word: string; reading: string } =>
+          j.word !== undefined && j.reading !== undefined
+      )
+      .filter((j) => j.word === entry.slug);
 
-    const furiganas = readingsWritings
-      .map((rw) => fit(rw.word!, rw.reading!, { type: 'object', kanaReading: false }))
+    // Generate furiganas from the writing/reading pairs
+
+    const allFuriganaMatches = readingsWritings
+      .map((rw) => fit(rw.word, rw.reading, { type: 'object', kanaReading: false }))
       .filter((furi): furi is FuriganaMatch[] => furi !== null); // Filter out failures
+
+    const firstFuriganaMatches = allFuriganaMatches.length > 0 ? allFuriganaMatches[0] : null;
 
     // Ignore "Wikipedia definition" entries that are often redundant
 
@@ -367,11 +374,28 @@ function WordPage(props: { word: Word; color: string }) {
       (m) => !m.parts_of_speech.some((p) => p.toLowerCase().includes('wikipedia'))
     );
 
+    // TODO ignore duplicates?
+
+    const furigana = entryToFurigana(entry);
+    const romaji = entryToRomaji(entry);
+
     return (
       <Box m={1}>
         <Grid container direction='column' spacing={1}>
-          <Grid item>
-            <Furigana readings={furiganas.length > 0 ? furiganas[0] : [{ w: entry.slug }]} />
+          <Grid item container direction='row' alignItems='baseline' spacing={4}>
+            {/* Furigana */}
+            <Grid item>
+              <Furigana readings={furigana} />
+            </Grid>
+
+            {/* Romaji */}
+            {romaji && (
+              <Grid item>
+                <Typography variant='h6' color='textSecondary'>
+                  {romaji}
+                </Typography>
+              </Grid>
+            )}
           </Grid>
 
           {meanings.map((m, i) => (

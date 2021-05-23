@@ -3,7 +3,7 @@ import { fetchWord, JishoApiEntry } from './jisho';
 import LRUCache from 'lru-cache';
 
 // Cache for past fetches
-const entriesCache = new LRUCache<string, JishoApiEntry[]>({
+const entriesCache = new LRUCache<string, JishoApiEntry | null>({
   max: 500
 });
 
@@ -12,8 +12,7 @@ async function work(request: any, sendResponse: (response?: any) => void) {
 
   console.log('Received words', words);
 
-  // Each word has multiple Jisho entries
-  let entries: Record<string, JishoApiEntry[]> = {};
+  let entries: Record<string, JishoApiEntry | null> = {};
 
   for (let word of words) {
     console.log(`Fetching word "${word}"`);
@@ -31,7 +30,7 @@ async function work(request: any, sendResponse: (response?: any) => void) {
     else {
       try {
         const result = await fetchWord(word);
-        console.log('Received', result, new TextEncoder().encode(JSON.stringify(result)).length);
+        console.log('Received', result);
         entries[word] = result;
 
         // Cache
@@ -44,8 +43,6 @@ async function work(request: any, sendResponse: (response?: any) => void) {
     }
   }
 
-  sendResponse({ entries });
-  sendResponse({ entries });
   sendResponse({ entries });
 }
 
