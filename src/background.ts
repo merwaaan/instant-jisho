@@ -1,8 +1,11 @@
 import sleep from 'sleep-promise';
 import { fetchWord, JishoApiEntry } from './jisho';
+import LRUCache from 'lru-cache';
 
 // Cache for past fetches
-const entriesCache: Record<string, JishoApiEntry[]> = {};
+const entriesCache = new LRUCache<string, JishoApiEntry[]>({
+  max: 500
+});
 
 async function work(request: any, sendResponse: (response?: any) => void) {
   const words = request.words as string[];
@@ -17,7 +20,7 @@ async function work(request: any, sendResponse: (response?: any) => void) {
 
     // Check the cache
 
-    const cached = entriesCache[word];
+    const cached = entriesCache.get(word);
 
     if (cached) {
       console.log('Already in cache', cached);
@@ -28,11 +31,11 @@ async function work(request: any, sendResponse: (response?: any) => void) {
     else {
       try {
         const result = await fetchWord(word);
-        console.log('Received', result);
+        console.log('Received', result, new TextEncoder().encode(JSON.stringify(result)).length);
         entries[word] = result;
 
         // Cache
-        entriesCache[word] = result;
+        entriesCache.set(word, result);
       } catch (error) {
         console.error(`Cannot fetch word "${word}"`, error);
       }
