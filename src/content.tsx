@@ -1,6 +1,6 @@
 import { Box, Button, CircularProgress, Grid, Paper, Typography } from '@material-ui/core';
 import ScopedCssBaseline from '@material-ui/core/ScopedCssBaseline';
-import { ArrowLeft, ArrowRight, ErrorOutline } from '@material-ui/icons';
+import { ArrowLeft, ArrowRight } from '@material-ui/icons';
 import { createPopper } from '@popperjs/core';
 import { FuriganaMatch } from 'furigana';
 import React, { useEffect, useRef, useState } from 'react';
@@ -11,17 +11,17 @@ import TinySegmenter from 'tiny-segmenter';
 import { isJapanese } from 'wanakana';
 
 import { entryToFurigana, entryToRomaji, JishoApiEntry } from './jisho';
+import { Message, postMessageToPort } from './messages';
 
 // App state
 
 type WordStateLoading = { type: 'loading' };
 type WordStateCompleted = { type: 'completed'; entry: JishoApiEntry | null };
-type WordStateFailed = { type: 'error'; message: string };
 
 type Word = {
   value: string;
   characterRanges: Range[];
-  state: WordStateLoading | WordStateCompleted | WordStateFailed;
+  state: WordStateLoading | WordStateCompleted;
 };
 
 type Search = {
@@ -67,6 +67,29 @@ function render(search: Search | undefined) {
 
 const segmenter = new TinySegmenter();
 
+// Establish a connection with the background script
+
+const port = chrome.runtime.connect();
+
+port.onMessage.addListener((message: Message) => {
+  if (message.type === 'translate-response') {
+    // Do nothing if there's no active search anymore
+    if (!currentSearch) {
+      return;
+    }
+
+    // Update the state of the translate word (can have multiple instances)
+    for (let word of currentSearch.words) {
+      if (word.value === message.word) {
+        word.state = { type: 'completed', entry: message.entry };
+      }
+    }
+
+    render(currentSearch);
+  }
+});
+
+// Selection changed? Extract the words to translate and send them to the background script
 document.addEventListener('mouseup', async () => {
   const selection = window.getSelection();
 
@@ -186,7 +209,7 @@ document.addEventListener('mouseup', async () => {
 
   const wordsRanges = computeCharacterRanges();
 
-  // Update the state
+  // Save the new state
 
   currentSearch = {
     words: [],
@@ -205,28 +228,13 @@ document.addEventListener('mouseup', async () => {
 
   // Send to the background script
 
-  chrome.runtime.sendMessage({ words }, (response) => {
-    console.debug('response', response);
-
-    // Do nothing if the search has been cancelled
-    if (!currentSearch) {
-      return;
-    }
-
-    // Update the state
-
-    const entries = response.entries as Record<string, JishoApiEntry | null>;
-
-    for (let [word, entry] of Object.entries(entries)) {
-      const wordData = currentSearch?.words.find((t) => t.value === word);
-      if (wordData) {
-        wordData.state = { type: 'completed', entry: entry };
-      }
-      // TODO handle error
-    }
-
-    render(currentSearch);
-  });
+  postMessageToPort(
+    {
+      type: 'translate-request',
+      words
+    },
+    port
+  );
 });
 
 // Root component
@@ -352,7 +360,6 @@ function Tooltip(props: {
                         size='small'
                         startIcon={<ArrowLeft />}
                         style={{
-                          //color: 'white',
                           fontWeight: 'bold',
                           color: getColor(props.selectedWordIndex - 1, wordCount),
                           border: '1px solid'
@@ -413,12 +420,6 @@ function WordPage(props: { word: Word; color: string }) {
         </Grid>
       </Box>
     );
-  } else if (props.word.state.type === 'error') {
-    return (
-      <Box m={4}>
-        <ErrorOutline />
-      </Box>
-    );
   } else if (props.word.state.entry === null) {
     return (
       <Box m={4}>
@@ -476,9 +477,9 @@ function WordPage(props: { word: Word; color: string }) {
             )}
           </Grid>
 
-          <Grid item container style={{ overflow: 'auto' }}>
+          <Grid item container direction='column'>
             {meanings.map((m, i) => (
-              <Grid item container direction='row' wrap='nowrap' style={{}}>
+              <Grid item container direction='row' alignItems='baseline' spacing={1} wrap='nowrap'>
                 <Grid item>
                   <Typography variant='body2' style={{ color: 'grey' }}>
                     {i + 1}.
@@ -509,7 +510,9 @@ function Furigana(props: { readings: FuriganaMatch[] }) {
             <Typography variant='h4'>{match.w}</Typography>
           </Grid>
           <Grid item>
-            <Typography variant='subtitle1'>{match.r}</Typography>
+            <Typography variant='subtitle1' style={{ wordBreak: 'keep-all' }}>
+              {match.r}
+            </Typography>
           </Grid>
         </Grid>
       ))}
@@ -566,7 +569,7 @@ function WordUnderline(props: {
               transform: `scaleY(${heightMultiplier})`,
               transition: 'transform 0.1s ease-out'
             }}
-          />
+          ></div>
         );
       })}
     </>
