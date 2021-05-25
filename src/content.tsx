@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom';
 import root from 'react-shadow/material-ui';
 
 import { App } from './App';
+import { Message } from './messages';
 
 // TEST load a font
 // TODO how to pack it in the app instead?
@@ -17,21 +18,41 @@ document.head.appendChild(style);
 
 const port = chrome.runtime.connect();
 
+port.onMessage.addListener((message: Message) => {
+  if (message.type === 'toggle') {
+    render(message.value);
+  }
+});
+
 // Render the app
 
-const rootContainer = document.createElement('div');
-rootContainer.id = 'instant-jisho-root-container';
-document.body.appendChild(rootContainer);
+const CONTAINER_ID = 'instant-jisho-root-container';
 
-ReactDOM.render(
-  // Put the UI container in a shadow root to prevent styles
-  // from host webpages interfering with our own styling rules
-  <root.div mode='closed'>
-    <ScopedCssBaseline>
-      <App port={port} />
-    </ScopedCssBaseline>
-  </root.div>,
-  rootContainer
-);
+function render(on: boolean) {
+  console.log('render', on);
+  let rootContainer = document.getElementById(CONTAINER_ID);
+
+  if (on) {
+    // Create a container if needed
+    if (!rootContainer) {
+      rootContainer = document.createElement('div');
+      rootContainer.id = CONTAINER_ID;
+      document.body.appendChild(rootContainer);
+    }
+
+    ReactDOM.render(
+      // Put the UI container in a shadow root to prevent styles
+      // from host webpages interfering with our own styling rules
+      <root.div mode='closed'>
+        <ScopedCssBaseline>
+          <App port={port} />
+        </ScopedCssBaseline>
+      </root.div>,
+      rootContainer
+    );
+  } else if (rootContainer) {
+    ReactDOM.unmountComponentAtNode(rootContainer);
+  }
+}
 
 export {};

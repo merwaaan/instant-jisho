@@ -48,14 +48,35 @@ setInterval(async () => {
   }
 }, THROTTLE_INTERVAL);
 
-// Establish connections with tabs
+// Establish connections with other scripts
+
+const allPorts: Set<chrome.runtime.Port> = new Set();
 
 chrome.runtime.onConnect.addListener((port) => {
   console.log('Connected', port.sender?.url);
 
+  allPorts.add(port);
+
+  // Send the toggle state
+  chrome.storage.sync.get({ toggle: true }, (data) => {
+    postMessageToPort({ type: 'toggle', value: data.toggle }, port);
+  });
+
   // Handle incoming messages
   port.onMessage.addListener((message: Message) => {
-    if (message.type === 'translate-request') {
+    // Toggle on/off
+    if (message.type === 'toggle') {
+      console.log('Toggle', message.value);
+
+      // Store the new state
+      chrome.storage.sync.set({ toggle: message.value });
+
+      // Forward to the connected receivers
+      allPorts.forEach((port) => postMessageToPort(message, port));
+    }
+
+    // Translate request
+    else if (message.type === 'translate-request') {
       console.log('Translation request', message.words);
 
       for (let word of message.words) {
@@ -79,7 +100,10 @@ chrome.runtime.onConnect.addListener((port) => {
           }
         }
       }
-    } else if (message.type === 'translate-cancel') {
+    }
+
+    // Translate cancellation
+    else if (message.type === 'translate-cancel') {
       message.words.forEach((word) => {
         console.log(`Cancelling ${word}`);
 
@@ -99,9 +123,10 @@ chrome.runtime.onConnect.addListener((port) => {
   port.onDisconnect.addListener((port) => {
     console.log('Disconnected', port.sender?.url);
 
-    queue.forEach((item) => item.receivers.delete(port));
+    allPorts.delete(port);
 
-    // Remove queued items with no receivers left
+    // Unqueue items for the disconnected receiver
+    queue.forEach((item) => item.receivers.delete(port));
     queue = queue.filter((item) => item.receivers.size > 0);
   });
 });
