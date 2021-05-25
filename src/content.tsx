@@ -8,6 +8,7 @@ import ReactDOM from 'react-dom';
 import root from 'react-shadow/material-ui';
 // @ts-ignore (no type definitions)
 import TinySegmenter from 'tiny-segmenter';
+import { isJapanese } from 'wanakana';
 
 import { entryToFurigana, entryToRomaji, JishoApiEntry } from './jisho';
 
@@ -67,9 +68,9 @@ function render(search: Search | undefined) {
 const segmenter = new TinySegmenter();
 
 document.addEventListener('mouseup', async () => {
-  // Retrieve the selected text
-
   const selection = window.getSelection();
+
+  // No selection: reset the state
 
   if (!selection || selection.type !== 'Range') {
     currentSearch = undefined;
@@ -87,46 +88,105 @@ document.addEventListener('mouseup', async () => {
     return;
   }
 
-  // TODO check if japanese here
+  // Split the selection into individual words
 
   const selectedText = selection.toString();
 
-  // Split into individual words
+  const segments = segmenter.segment(selectedText) as string[];
 
-  const words = segmenter.segment(selectedText) as string[];
+  let words = segments
+    .map((segment) =>
+      segment.replace(
+        /[\s、，;。…‥:：！!?？「」（）()〔〕［］[\]｛｝{}｟｠〈〉《》【】〖〗〘〙〚〛]/g,
+        ''
+      )
+    ) // Remove spaces, punctuation
+    .filter((segment) => isJapanese(segment)) // Remove words with non-japanese characters
+    .filter((segment) => segment.length > 0);
 
-  // TODO remove punctuation?
-
-  // Do nothing if the selection did not change
+  // Do nothing more if the selection has not changed since last time
 
   if (currentSearch && words.join() === currentSearch.words.map((w) => w.value).join()) {
     return;
   }
 
-  // Compute ranges for each character to later generate bounding boxes and draw underlines
+  // Compute the range of each character of each word to later generate bounding boxes and draw underlines
 
-  const selectionRange = selection.getRangeAt(0);
+  const computeCharacterRanges = (): Range[][] => {
+    // Collect the nodes that contain the selected text
 
-  const wordsRanges: Range[][] = [];
+    const range = selection.getRangeAt(0);
 
-  let charIndex = 0;
+    const nodeIterator = document.createNodeIterator(
+      range.commonAncestorContainer,
+      NodeFilter.SHOW_TEXT
+    );
 
-  for (let word of words) {
-    const wordRanges: Range[] = [];
+    const rangeNodes = [];
 
-    for (let char of word) {
-      const r = new Range();
-      r.setStart(selectionRange.startContainer, selectionRange.startOffset + charIndex);
-      r.setEnd(selectionRange.startContainer, selectionRange.startOffset + charIndex + 1);
-      ++charIndex;
+    while (nodeIterator.nextNode()) {
+      // Ignore nodes that precede the selection
+      if (rangeNodes.length === 0 && nodeIterator.referenceNode !== range.startContainer) {
+        continue;
+      }
 
-      wordRanges.push(r);
+      rangeNodes.push(nodeIterator.referenceNode);
+
+      // Ignore nodes that follow the selection
+      if (nodeIterator.referenceNode === range.endContainer) {
+        break;
+      }
     }
 
-    wordsRanges.push(wordRanges);
-  }
+    // Traverse the nodes and look for the characters that make up our words.
+    // For each character, create a range.
 
-  //
+    const ranges: Range[][] = [];
+    words.forEach(() => ranges.push([]));
+
+    const wordQueue = [...words];
+    let wordIndex = 0;
+
+    for (let nodeIndex = 0; nodeIndex < rangeNodes.length; ++nodeIndex) {
+      const node = rangeNodes[nodeIndex];
+
+      const nodeText = node.nodeValue;
+      if (!nodeText) {
+        continue;
+      }
+
+      const charStart = nodeIndex === 0 ? range.startOffset : 0;
+
+      for (let charIndex = charStart; charIndex < nodeText.length; ++charIndex) {
+        // Found the next character?
+        if (nodeText[charIndex] === wordQueue[0][0]) {
+          const charRange = new Range();
+          charRange.setStart(node, charIndex);
+          charRange.setEnd(node, charIndex + 1);
+          ranges[wordIndex].push(charRange);
+
+          wordQueue[0] = wordQueue[0].substring(1);
+        }
+
+        // Completed the current word?
+        if (wordQueue[0].length === 0) {
+          wordQueue.splice(0, 1);
+          ++wordIndex;
+        }
+
+        // Completed all the words?
+        if (wordQueue.length === 0) {
+          return ranges;
+        }
+      }
+    }
+
+    return ranges;
+  };
+
+  const wordsRanges = computeCharacterRanges();
+
+  // Update the state
 
   currentSearch = {
     words: [],
@@ -253,8 +313,10 @@ function Tooltip(props: {
       <Paper
         ref={tooltipRef}
         style={{
-          maxWidth: '400px',
-          maxHeight: '400px',
+          //minWidth: '200px',
+          //minHeight: '200px',
+          //maxWidth: '350px',
+          //maxHeight: '35px',
           zIndex: 2147483647,
           overflow: 'hidden' // hides the colored line corners overflowing
         }}
@@ -269,61 +331,67 @@ function Tooltip(props: {
           }}
         />
 
-        {/* Controls */}
-        {wordCount > 1 && (
-          <Box m={1}>
-            <Grid
-              container
-              direction='row'
-              wrap='nowrap'
-              justify='space-between'
-              alignItems='baseline'
-              spacing={1}
-            >
-              <Grid item>
-                {props.selectedWordIndex > 0 && (
-                  <Button
-                    variant='outlined'
-                    disableElevation
-                    size='small'
-                    startIcon={<ArrowLeft />}
-                    style={{
-                      //color: 'white',
-                      fontWeight: 'bold',
-                      color: getColor(props.selectedWordIndex - 1, wordCount),
-                      border: '1px solid'
-                    }}
-                    onClick={props.onPrevWord}
-                  >
-                    {prevWord.value}
-                  </Button>
-                )}
-              </Grid>
-              <Grid item>
-                {props.selectedWordIndex < wordCount - 1 && (
-                  <Button
-                    variant='outlined'
-                    disableElevation
-                    size='small'
-                    endIcon={<ArrowRight />}
-                    style={{
-                      //color: 'white',
-                      fontWeight: 'bold',
-                      color: getColor(props.selectedWordIndex + 1, wordCount),
-                      border: '1px solid'
-                    }}
-                    onClick={props.onNextWord}
-                  >
-                    {nextWord.value}
-                  </Button>
-                )}
-              </Grid>
+        <Grid container direction='column' spacing={1}>
+          {/* Controls */}
+          {wordCount > 1 && (
+            <Grid item>
+              <Box m={1}>
+                <Grid
+                  container
+                  direction='row'
+                  wrap='nowrap'
+                  justify='space-between'
+                  alignItems='baseline'
+                  spacing={1}
+                >
+                  <Grid item>
+                    {props.selectedWordIndex > 0 && (
+                      <Button
+                        variant='outlined'
+                        disableElevation
+                        size='small'
+                        startIcon={<ArrowLeft />}
+                        style={{
+                          //color: 'white',
+                          fontWeight: 'bold',
+                          color: getColor(props.selectedWordIndex - 1, wordCount),
+                          border: '1px solid'
+                        }}
+                        onClick={props.onPrevWord}
+                      >
+                        {prevWord.value}
+                      </Button>
+                    )}
+                  </Grid>
+                  <Grid item>
+                    {props.selectedWordIndex < wordCount - 1 && (
+                      <Button
+                        variant='outlined'
+                        disableElevation
+                        size='small'
+                        endIcon={<ArrowRight />}
+                        style={{
+                          //color: 'white',
+                          fontWeight: 'bold',
+                          color: getColor(props.selectedWordIndex + 1, wordCount),
+                          border: '1px solid'
+                        }}
+                        onClick={props.onNextWord}
+                      >
+                        {nextWord.value}
+                      </Button>
+                    )}
+                  </Grid>
+                </Grid>
+              </Box>
             </Grid>
-          </Box>
-        )}
+          )}
 
-        {/* Page contents */}
-        <WordPage word={word} color={getColor(props.selectedWordIndex)} />
+          {/* Page contents */}
+          <Grid item>
+            <WordPage word={word} color={getColor(props.selectedWordIndex)} />
+          </Grid>
+        </Grid>
       </Paper>
     </>
   );
@@ -332,7 +400,7 @@ function Tooltip(props: {
 function WordPage(props: { word: Word; color: string }) {
   if (props.word.state.type === 'loading') {
     return (
-      <Box m={4}>
+      <Box m={6}>
         <Grid container direction='column' alignItems='center' spacing={3}>
           <Grid item>
             <Typography variant='body2' style={{ color: '#bbbbbb' }}>
@@ -354,7 +422,7 @@ function WordPage(props: { word: Word; color: string }) {
   } else if (props.word.state.entry === null) {
     return (
       <Box m={4}>
-        <Grid container direction='column' alignItems='center' spacing={2}>
+        <Grid container direction='column' alignItems='center' spacing={3}>
           <Grid item>
             <Typography variant='body2' style={{ color: '#bbbbbb' }}>
               No results for <span style={{ fontWeight: 'bold' }}>{props.word.value}</span>
@@ -384,7 +452,7 @@ function WordPage(props: { word: Word; color: string }) {
 
     return (
       <Box m={1}>
-        <Grid container direction='column' spacing={1}>
+        <Grid container direction='column' spacing={2}>
           <Grid
             item
             container
@@ -408,25 +476,23 @@ function WordPage(props: { word: Word; color: string }) {
             )}
           </Grid>
 
-          {meanings.map((m, i) => (
-            <Grid item container direction='row' wrap='nowrap' spacing={1}>
-              {/*sense.parts_of_speech.map((part) => (
-                  <Chip label={part} size='small' />
-                ))*/}
+          <Grid item container style={{ overflow: 'auto' }}>
+            {meanings.map((m, i) => (
+              <Grid item container direction='row' wrap='nowrap' style={{}}>
+                <Grid item>
+                  <Typography variant='body2' style={{ color: 'grey' }}>
+                    {i + 1}.
+                  </Typography>
+                </Grid>
 
-              <Grid item>
-                <Typography variant='body2' style={{ color: 'grey' }}>
-                  {i + 1}.
-                </Typography>
+                <Grid item>
+                  <Typography variant='body2' style={{ fontFamily: '"Roboto Slab", serif' }}>
+                    {m.english_definitions.join(', ')}
+                  </Typography>
+                </Grid>
               </Grid>
-
-              <Grid item>
-                <Typography variant='body2' style={{ fontFamily: '"Roboto Slab", serif' }}>
-                  {m.english_definitions.join(', ')}
-                </Typography>
-              </Grid>
-            </Grid>
-          ))}
+            ))}
+          </Grid>
         </Grid>
       </Box>
     );
