@@ -55,18 +55,26 @@ export function entryToRomaji(entry: JishoApiEntry): string | null {
 }
 
 export function entryToFurigana(entry: JishoApiEntry): FuriganaMatch[] {
-  // Writing and reading provided: try to fit them into a furigana
+  // Retrieve an entry that matches the slug
 
-  const rw = entry.japanese.find((j) => j.word !== undefined && j.reading !== undefined);
+  const readingWriting = entry.japanese.find(
+    (j) => j.word === entry.slug || j.reading === entry.slug
+  );
 
-  if (rw) {
-    const fitted = fit(rw.word!, rw.reading!, { type: 'object', kanaReading: false });
+  // Both writing and reading provided: try to fit them into a furigana
+
+  if (readingWriting?.word && readingWriting?.reading) {
+    const fitted = fit(readingWriting.word!, readingWriting.reading!, {
+      type: 'object',
+      kanaReading: false
+    });
+
     if (fitted) {
       return fitted;
     }
   }
 
-  // Not enough data, or fitting failed: return the slug as the writing, without decoration kanas
+  // Not enough data or fitting failed: return the slug as the writing, without decoration kanas
 
   return [{ w: entry.slug }];
 }

@@ -3,6 +3,8 @@ import LRUCache from 'lru-cache';
 import { fetchWord, JishoApiEntry } from './jisho';
 import { Message, postMessageToPort } from './messages';
 
+const THROTTLE_INTERVAL = 1_000;
+
 // Cache for past fetches
 
 const cache = new LRUCache<string, JishoApiEntry | null>({
@@ -23,8 +25,6 @@ let queue: QueueItem[] = [];
 
 // Translate queued words at a fixed interval
 
-const THROTTLE_INTERVAL = 5_000;
-
 setInterval(async () => {
   const item = queue.shift();
 
@@ -36,6 +36,8 @@ setInterval(async () => {
     console.log(`Dequeuing ${item.word}`);
 
     const entry = await fetchWord(item.word);
+    console.log(item.word, entry);
+
     cache.set(item.word, entry);
 
     item.receivers.forEach((port) =>
@@ -60,7 +62,7 @@ chrome.runtime.onConnect.addListener((port) => {
         // Word already in cache? Send the answer immediately
         const cached = cache.get(word);
         if (cached) {
-          console.log(`${cached} already in cache`);
+          console.log(`${word} already in cache`);
           postMessageToPort({ type: 'translate-response', word, entry: cached }, port);
         }
 
@@ -77,9 +79,20 @@ chrome.runtime.onConnect.addListener((port) => {
           }
         }
       }
-    }
+    } else if (message.type === 'translate-cancel') {
+      message.words.forEach((word) => {
+        console.log(`Cancelling ${word}`);
 
-    // TODO cancellation?
+        const queued = queue.find((item) => item.word === word);
+
+        if (queued) {
+          queued.receivers.delete(port);
+        }
+      });
+
+      // Remove queued items with no receivers left
+      queue = queue.filter((item) => item.receivers.size > 0);
+    }
   });
 
   // Handle disconnections
