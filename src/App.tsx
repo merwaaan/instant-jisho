@@ -18,7 +18,10 @@ export function App(props: { port: chrome.runtime.Port }) {
   const [currentSearch, setCurrentSearch] = useState<State | undefined>(undefined);
 
   // Currently displayed word
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const [selectedWordIndex, setSelectedWordIndex] = useState(0);
+
+  // Currently hovered word
+  const [hoveredWordIndex, setHoveredWordIndex] = useState<number | undefined>();
 
   // Update when the selection changes
 
@@ -212,15 +215,15 @@ export function App(props: { port: chrome.runtime.Port }) {
     <>
       <Tooltip
         search={currentSearch}
-        selectedWordIndex={currentWordIndex}
-        onPrevWord={() =>
-          setCurrentWordIndex(mod(currentWordIndex - 1, currentSearch.words.length))
-        }
-        onNextWord={() =>
-          setCurrentWordIndex(mod(currentWordIndex + 1, currentSearch.words.length))
-        }
+        selectedWordIndex={selectedWordIndex}
+        onChangeWord={(wordIndex) => setSelectedWordIndex(wordIndex)}
+        onHoverWord={(wordIndex) => setHoveredWordIndex(wordIndex)}
       />
-      <Underline words={currentSearch.words} selectedWordIndex={currentWordIndex} />
+      <Underline
+        words={currentSearch.words}
+        selectedWordIndex={selectedWordIndex}
+        hoveredWordIndex={hoveredWordIndex}
+      />
     </>
   );
 }
@@ -229,8 +232,8 @@ export function App(props: { port: chrome.runtime.Port }) {
 function Tooltip(props: {
   search: State;
   selectedWordIndex: number;
-  onPrevWord: () => void;
-  onNextWord: () => void;
+  onChangeWord: (wordIndex: number) => void;
+  onHoverWord: (wordIndex: number | undefined) => void;
 }) {
   // Position the tooltip next to the target
 
@@ -254,6 +257,8 @@ function Tooltip(props: {
       });
     }
   });
+
+  //
 
   const wordCount = props.search.words.length;
 
@@ -314,13 +319,15 @@ function Tooltip(props: {
                         disableElevation
                         size='small'
                         startIcon={<ArrowBack />}
+                        onMouseEnter={() => props.onHoverWord(props.selectedWordIndex - 1)}
+                        onMouseLeave={() => props.onHoverWord(undefined)}
                         style={{
                           justifyContent: 'flex-start',
                           fontWeight: 'bold',
                           color: getColor(props.selectedWordIndex - 1, wordCount),
                           border: '1px solid'
                         }}
-                        onClick={props.onPrevWord}
+                        onClick={() => props.onChangeWord(props.selectedWordIndex - 1)}
                       >
                         {prevWord.value}
                       </Button>
@@ -334,13 +341,15 @@ function Tooltip(props: {
                         disableElevation
                         size='small'
                         endIcon={<ArrowForward />}
+                        onMouseEnter={() => props.onHoverWord(props.selectedWordIndex + 1)}
+                        onMouseLeave={() => props.onHoverWord(undefined)}
                         style={{
                           justifyContent: 'flex-end',
                           fontWeight: 'bold',
                           color: getColor(props.selectedWordIndex + 1, wordCount),
                           border: '1px solid'
                         }}
-                        onClick={props.onNextWord}
+                        onClick={() => props.onChangeWord(props.selectedWordIndex + 1)}
                       >
                         {nextWord.value}
                       </Button>
@@ -510,7 +519,11 @@ function Furigana(props: { readings: FuriganaMatch[] }) {
 }
 
 // Underline effect for all the words
-function Underline(props: { words: Word[]; selectedWordIndex: number }) {
+function Underline(props: {
+  words: Word[];
+  selectedWordIndex: number;
+  hoveredWordIndex: number | undefined;
+}) {
   return (
     <>
       {props.words.map((word, i) => (
@@ -520,6 +533,7 @@ function Underline(props: { words: Word[]; selectedWordIndex: number }) {
           thickness={2}
           offset={6}
           selected={i === props.selectedWordIndex}
+          hovered={i === props.hoveredWordIndex}
         />
       ))}
     </>
@@ -533,6 +547,7 @@ function WordUnderline(props: {
   thickness: number;
   offset: number;
   selected: boolean;
+  hovered: boolean;
 }) {
   return (
     <>
@@ -545,7 +560,7 @@ function WordUnderline(props: {
         let width = rect.width - (i === props.ranges.length - 1 ? 2 : 0);
 
         const top = window.scrollY + rect.bottom + props.offset;
-        const heightMultiplier = props.selected ? 3 : 1.0;
+        const heightMultiplier = props.selected ? 3 : props.hovered ? 2.0 : 1.0;
 
         return (
           <div
