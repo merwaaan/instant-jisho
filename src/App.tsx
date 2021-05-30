@@ -420,7 +420,7 @@ function WordPage(props: { word: Word; color: string }) {
 
     return (
       <Box m={1}>
-        <Grid container direction='column' spacing={2}>
+        <Grid container direction='column' spacing={3}>
           <Grid
             item
             container
@@ -453,6 +453,23 @@ function WordPage(props: { word: Word; color: string }) {
                     {i + 1}.
                   </Typography>
                 </Grid>
+
+                {m.parts_of_speech.length > 0 && (
+                  <Grid item>
+                    <span
+                      style={{
+                        textTransform: 'uppercase',
+                        fontSize: '0.65rem',
+                        color: 'limegreen',
+                        border: '1px solid limegreen',
+                        borderRadius: '2px',
+                        padding: '0.05rem 0.2rem'
+                      }}
+                    >
+                      {m.parts_of_speech[0]}
+                    </span>
+                  </Grid>
+                )}
 
                 <Grid item>
                   <Typography variant='body2' style={{ fontFamily: '"Roboto Slab", serif' }}>
