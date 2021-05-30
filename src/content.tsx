@@ -1,10 +1,12 @@
 import ScopedCssBaseline from '@material-ui/core/ScopedCssBaseline';
+import { ThemeProvider } from '@material-ui/styles';
 import React from 'react';
 import ReactDOM from 'react-dom';
 import root from 'react-shadow/material-ui';
 
 import { App } from './App';
 import { Message } from './messages';
+import theme from './theme';
 
 // TEST load a font
 // TODO how to pack it in the app instead?
@@ -45,7 +47,9 @@ function render(on: boolean) {
       // from host webpages interfering with our own styling rules
       <root.div mode='closed'>
         <ScopedCssBaseline>
-          <App port={port} />
+          <ThemeProvider theme={theme}>
+            <App port={port} />
+          </ThemeProvider>
         </ScopedCssBaseline>
       </root.div>,
       rootContainer

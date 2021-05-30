@@ -1,7 +1,8 @@
-import { Paper, Grid, Box, Button, Typography, CircularProgress } from '@material-ui/core';
-import { ArrowBack, ArrowForward } from '@material-ui/icons';
+import { Paper, Grid, Box, Button, Link, Typography, CircularProgress } from '@material-ui/core';
+import { ArrowBack, ArrowForward, MenuBookRounded } from '@material-ui/icons';
 import { createPopper } from '@popperjs/core';
 import { FuriganaMatch } from 'furigana';
+import _ from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 // @ts-ignore (no type definitions)
 import TinySegmenter from 'tiny-segmenter';
@@ -170,18 +171,28 @@ export function App(props: { port: chrome.runtime.Port }) {
     };
 
     const onMessage = (message: Message) => {
+      console.log(message);
       if (message.type === 'translate-response') {
-        // Do nothing if there's no active search anymore
-        if (!currentSearch) {
-          return;
-        }
+        setCurrentSearch((prevSearch) => {
+          // Do nothing if there's no active search anymore
 
-        // Update the state of the translated word (can have multiple instances)
-        for (let word of currentSearch.words) {
-          if (word.value === message.word) {
-            word.state = { type: 'completed', entry: message.entry };
+          if (!prevSearch) {
+            return prevSearch;
           }
-        }
+
+          // Update the translated word's state
+          // (can have multiple instances)
+
+          const newSearch: State = _.cloneDeep(prevSearch);
+
+          newSearch.words = newSearch.words.map((word) =>
+            word.value === message.word
+              ? { ...word, state: { type: 'completed', entry: message.entry } }
+              : word
+          );
+
+          return newSearch;
+        });
       }
     };
 
@@ -275,10 +286,6 @@ function Tooltip(props: {
       <Paper
         ref={tooltipRef}
         style={{
-          //minWidth: '200px',
-          //minHeight: '200px',
-          //maxWidth: '350px',
-          //maxHeight: '35px',
           zIndex: 2147483647,
           overflow: 'hidden' // hides the colored line corners overflowing
         }}
@@ -293,27 +300,22 @@ function Tooltip(props: {
           }}
         />
 
-        <Grid container direction='column' spacing={1}>
+        <Grid container direction='column' spacing={1} wrap='nowrap'>
           {/* Controls */}
           {wordCount > 1 && (
             <Grid item>
               <Box m={1}>
-                <Grid
-                  container
-                  direction='row'
-                  wrap='nowrap'
-                  justify='space-between'
-                  alignItems='baseline'
-                  spacing={1}
-                >
-                  <Grid item>
+                <Grid container direction='row' alignItems='baseline' spacing={1}>
+                  <Grid item xs={6}>
                     {props.selectedWordIndex > 0 && (
                       <Button
+                        fullWidth
                         variant='outlined'
                         disableElevation
                         size='small'
                         startIcon={<ArrowBack />}
                         style={{
+                          justifyContent: 'flex-start',
                           fontWeight: 'bold',
                           color: getColor(props.selectedWordIndex - 1, wordCount),
                           border: '1px solid'
@@ -324,15 +326,16 @@ function Tooltip(props: {
                       </Button>
                     )}
                   </Grid>
-                  <Grid item>
+                  <Grid item xs={6}>
                     {props.selectedWordIndex < wordCount - 1 && (
                       <Button
+                        fullWidth
                         variant='outlined'
                         disableElevation
                         size='small'
                         endIcon={<ArrowForward />}
                         style={{
-                          //color: 'white',
+                          justifyContent: 'flex-end',
                           fontWeight: 'bold',
                           color: getColor(props.selectedWordIndex + 1, wordCount),
                           border: '1px solid'
@@ -432,6 +435,7 @@ function WordPage(props: { word: Word; color: string }) {
             )}
           </Grid>
 
+          {/* Meanings */}
           <Grid item container direction='column'>
             {meanings.map((m, i) => (
               <Grid item container direction='row' alignItems='baseline' spacing={1} wrap='nowrap'>
@@ -448,6 +452,34 @@ function WordPage(props: { word: Word; color: string }) {
                 </Grid>
               </Grid>
             ))}
+          </Grid>
+
+          {/* Jisho link */}
+          <Grid item>
+            <Link
+              href={`https://jisho.org/word/${entry.slug}`}
+              target='_blank'
+              rel='noreferrer'
+              color='textSecondary'
+            >
+              <Grid
+                container
+                direction='row'
+                spacing={1}
+                justify='flex-end'
+                alignItems='center'
+                wrap='nowrap'
+              >
+                <Grid item>
+                  <MenuBookRounded fontSize='small' />
+                </Grid>
+                <Grid item>
+                  <Typography variant='body2' style={{ fontSize: '0.8rem' }}>
+                    jisho.org page
+                  </Typography>
+                </Grid>
+              </Grid>
+            </Link>
           </Grid>
         </Grid>
       </Box>

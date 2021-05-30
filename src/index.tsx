@@ -1,16 +1,26 @@
-import { FormControlLabel, FormGroup, Switch } from '@material-ui/core';
+import {
+  Divider,
+  FormControlLabel,
+  FormGroup,
+  Grid,
+  Link,
+  Switch,
+  ThemeProvider,
+  Typography
+} from '@material-ui/core';
 import React from 'react';
 import ReactDOM from 'react-dom';
 
 import { Message, postMessageToPort } from './messages';
+import theme from './theme';
 
 const port = chrome.runtime.connect();
 
-let TOGGLE = true;
+let toggled = true;
 
 port.onMessage.addListener((message: Message) => {
   if (message.type === 'toggle') {
-    TOGGLE = message.value;
+    toggled = message.value;
     render();
   }
 });
@@ -18,19 +28,39 @@ port.onMessage.addListener((message: Message) => {
 function render() {
   ReactDOM.render(
     <React.StrictMode>
-      <FormGroup>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={TOGGLE}
-              onChange={(event, checked) => {
-                postMessageToPort({ type: 'toggle', value: !TOGGLE }, port);
-              }}
-            />
-          }
-          label='On'
-        />
-      </FormGroup>
+      <ThemeProvider theme={theme}>
+        <Grid direction='column'>
+          <Grid item>
+            <FormGroup>
+              <FormControlLabel
+                control={
+                  <Switch
+                    color='primary'
+                    checked={toggled}
+                    onChange={(event, checked) => {
+                      postMessageToPort({ type: 'toggle', value: !toggled }, port);
+                    }}
+                  />
+                }
+                label={toggled ? 'On' : 'Off'}
+              />
+            </FormGroup>
+          </Grid>
+
+          <Grid item>
+            <Divider />
+          </Grid>
+
+          <Grid item>
+            <Typography noWrap variant='caption'>
+              Data from{' '}
+              <Link href='https://jisho.org/' target='_blank' rel='noreferrer'>
+                jisho.org
+              </Link>
+            </Typography>
+          </Grid>
+        </Grid>
+      </ThemeProvider>
     </React.StrictMode>,
     document.getElementById('root')
   );
