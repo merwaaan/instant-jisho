@@ -473,7 +473,12 @@ function WordPage(props: { word: Word; color: string }) {
 
                 <Grid item>
                   <Typography variant='body2' style={{ fontFamily: '"Roboto Slab", serif' }}>
-                    {m.english_definitions.join(', ')}
+                    {m.english_definitions
+                      // Capitalize the first word
+                      .map((def, i) =>
+                        i === 0 ? def.charAt(0).toUpperCase() + def.substring(1) : def
+                      )
+                      .join('; ')}
                   </Typography>
                 </Grid>
               </Grid>
