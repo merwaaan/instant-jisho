@@ -45,132 +45,134 @@ export function App(props: { port: chrome.runtime.Port }) {
         );
 
         setCurrentSearch(undefined);
+
+        return;
       }
 
       // Active selection
-      else {
-        // Split the selection into individual words
+      // Split the selection into individual words
 
-        const selectedText = selection.toString();
+      const selectedText = selection.toString();
 
-        const segmenter = new TinySegmenter();
-        const segments = segmenter.segment(selectedText) as string[];
+      const segmenter = new TinySegmenter();
+      const segments = segmenter.segment(selectedText) as string[];
 
-        let words = segments
-          // Remove spaces, punctuation
-          .map((segment) =>
-            segment.replace(
-              /[\s、，;。…‥:：！!?？「」（）()〔〕［］[\]｛｝{}｟｠〈〉《》【】〖〗〘〙〚〛『』]/g,
-              ''
-            )
+      let words = segments
+        // Remove spaces, punctuation
+        .map((segment) =>
+          segment.replace(
+            /[\s、，;。…‥:：！!?？「」（）()〔〕［］[\]｛｝{}｟｠〈〉《》【】〖〗〘〙〚〛『』]/g,
+            ''
           )
-          // Remove words with non-japanese characters
-          .filter((segment) => isJapanese(segment))
-          .filter((segment) => segment.length > 0);
+        )
+        // Remove words with non-japanese characters
+        .filter((segment) => isJapanese(segment))
+        .filter((segment) => segment.length > 0);
 
-        // Do nothing more if the selection has not changed since last time
+      // Do nothing more if the selection has not changed since last time
 
-        if (currentSearch && words.join() === currentSearch.words.map((w) => w.value).join()) {
-          return;
+      if (currentSearch && words.join() === currentSearch.words.map((w) => w.value).join()) {
+        return;
+      }
+
+      // Compute the range of each character of each word to later generate bounding boxes and draw underlines
+
+      const computeCharacterRanges = (): Range[][] => {
+        // Collect the nodes that contain the selected text
+
+        const range = selection.getRangeAt(0);
+
+        const nodeIterator = document.createNodeIterator(
+          range.commonAncestorContainer,
+          NodeFilter.SHOW_TEXT
+        );
+
+        const rangeNodes = [];
+
+        while (nodeIterator.nextNode()) {
+          // Ignore nodes that precede the selection
+          if (rangeNodes.length === 0 && nodeIterator.referenceNode !== range.startContainer) {
+            continue;
+          }
+
+          rangeNodes.push(nodeIterator.referenceNode);
+
+          // Ignore nodes that follow the selection
+          if (nodeIterator.referenceNode === range.endContainer) {
+            break;
+          }
         }
 
-        // Compute the range of each character of each word to later generate bounding boxes and draw underlines
+        // Traverse the nodes and look for the characters that make up our words.
+        // For each character, create a range.
 
-        const computeCharacterRanges = (): Range[][] => {
-          // Collect the nodes that contain the selected text
+        const ranges: Range[][] = [];
+        words.forEach(() => ranges.push([]));
 
-          const range = selection.getRangeAt(0);
+        const wordQueue = [...words];
+        let wordIndex = 0;
 
-          const nodeIterator = document.createNodeIterator(
-            range.commonAncestorContainer,
-            NodeFilter.SHOW_TEXT
-          );
+        for (let nodeIndex = 0; nodeIndex < rangeNodes.length; ++nodeIndex) {
+          const node = rangeNodes[nodeIndex];
 
-          const rangeNodes = [];
-
-          while (nodeIterator.nextNode()) {
-            // Ignore nodes that precede the selection
-            if (rangeNodes.length === 0 && nodeIterator.referenceNode !== range.startContainer) {
-              continue;
-            }
-
-            rangeNodes.push(nodeIterator.referenceNode);
-
-            // Ignore nodes that follow the selection
-            if (nodeIterator.referenceNode === range.endContainer) {
-              break;
-            }
+          const nodeText = node.nodeValue;
+          if (!nodeText) {
+            continue;
           }
 
-          // Traverse the nodes and look for the characters that make up our words.
-          // For each character, create a range.
+          const charStart = nodeIndex === 0 ? range.startOffset : 0;
 
-          const ranges: Range[][] = [];
-          words.forEach(() => ranges.push([]));
+          for (let charIndex = charStart; charIndex < nodeText.length; ++charIndex) {
+            // Found the next character?
+            if (nodeText[charIndex] === wordQueue[0][0]) {
+              const charRange = new Range();
+              charRange.setStart(node, charIndex);
+              charRange.setEnd(node, charIndex + 1);
+              ranges[wordIndex].push(charRange);
 
-          const wordQueue = [...words];
-          let wordIndex = 0;
-
-          for (let nodeIndex = 0; nodeIndex < rangeNodes.length; ++nodeIndex) {
-            const node = rangeNodes[nodeIndex];
-
-            const nodeText = node.nodeValue;
-            if (!nodeText) {
-              continue;
+              wordQueue[0] = wordQueue[0].substring(1);
             }
 
-            const charStart = nodeIndex === 0 ? range.startOffset : 0;
+            // Completed the current word?
+            if (wordQueue[0].length === 0) {
+              wordQueue.splice(0, 1);
+              ++wordIndex;
+            }
 
-            for (let charIndex = charStart; charIndex < nodeText.length; ++charIndex) {
-              // Found the next character?
-              if (nodeText[charIndex] === wordQueue[0][0]) {
-                const charRange = new Range();
-                charRange.setStart(node, charIndex);
-                charRange.setEnd(node, charIndex + 1);
-                ranges[wordIndex].push(charRange);
-
-                wordQueue[0] = wordQueue[0].substring(1);
-              }
-
-              // Completed the current word?
-              if (wordQueue[0].length === 0) {
-                wordQueue.splice(0, 1);
-                ++wordIndex;
-              }
-
-              // Completed all the words?
-              if (wordQueue.length === 0) {
-                return ranges;
-              }
+            // Completed all the words?
+            if (wordQueue.length === 0) {
+              return ranges;
             }
           }
+        }
 
-          return ranges;
-        };
+        return ranges;
+      };
 
-        const wordsRanges = computeCharacterRanges();
+      const wordsRanges = computeCharacterRanges();
 
-        // Save the new state
+      // Save the new state
 
-        setCurrentSearch({
-          words: words.map((word, i) => ({
-            value: word,
-            characterRanges: wordsRanges[i],
-            state: { type: 'loading' }
-          })),
-          selection
-        });
+      setCurrentSearch({
+        words: words.map((word, i) => ({
+          value: word,
+          characterRanges: wordsRanges[i],
+          state: { type: 'loading' }
+        })),
+        selection
+      });
 
-        // Send to the background script
+      setSelectedWordIndex(0);
 
-        postMessageToPort(
-          {
-            type: 'translate-request',
-            words
-          },
-          props.port
-        );
-      }
+      // Send to the background script
+
+      postMessageToPort(
+        {
+          type: 'translate-request',
+          words
+        },
+        props.port
+      );
     };
 
     const onMessage = (message: Message) => {
