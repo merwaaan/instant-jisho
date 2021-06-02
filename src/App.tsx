@@ -295,6 +295,10 @@ function Tooltip(props: {
           overflow: 'hidden' // hides the colored line corners overflowing
         }}
         elevation={4}
+        onMouseUp={(event) => {
+          // Intercept the event so that clicks in the tooltip do not cancel/trigger selections
+          event.stopPropagation();
+        }}
       >
         {/* Colored line (same as the corresponding underline) */}
         <div
