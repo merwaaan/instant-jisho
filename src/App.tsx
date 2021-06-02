@@ -490,30 +490,18 @@ function WordPage(props: { word: Word; color: string }) {
           </Grid>
 
           {/* Jisho link */}
-          <Grid item>
+          <Grid item style={{ display: 'flex', flexWrap: 'nowrap', justifyContent: 'flex-end' }}>
             <Link
               href={`https://jisho.org/word/${entry.slug}`}
               target='_blank'
               rel='noreferrer'
               color='textSecondary'
+              style={{ display: 'flex', flexWrap: 'nowrap' }}
             >
-              <Grid
-                container
-                direction='row'
-                spacing={1}
-                justify='flex-end'
-                alignItems='center'
-                wrap='nowrap'
-              >
-                <Grid item>
-                  <MenuBookRounded fontSize='small' />
-                </Grid>
-                <Grid item>
-                  <Typography variant='body2' style={{ fontSize: '0.8rem' }}>
-                    jisho.org page
-                  </Typography>
-                </Grid>
-              </Grid>
+              <MenuBookRounded fontSize='small' style={{ marginRight: '0.5rem' }} />
+              <Typography variant='body2' style={{ fontSize: '0.8rem' }}>
+                jisho.org page
+              </Typography>
             </Link>
           </Grid>
         </Grid>
