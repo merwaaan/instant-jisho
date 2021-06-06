@@ -8,7 +8,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import TinySegmenter from 'tiny-segmenter';
 import { isJapanese } from 'wanakana';
 
-import { entryToFurigana, entryToRomaji } from './jisho';
+import { entryToFurigana, entryToRomaji, JishoApiEntry } from './jisho';
 import { Message, postMessageToPort } from './messages';
 import { State, Word } from './state';
 
@@ -378,6 +378,7 @@ function Tooltip(props: {
 
 // Definition for a single word
 function WordPage(props: { word: Word; color: string }) {
+  // Loading
   if (props.word.state.type === 'loading') {
     return (
       <Box m={6}>
@@ -393,7 +394,10 @@ function WordPage(props: { word: Word; color: string }) {
         </Grid>
       </Box>
     );
-  } else if (props.word.state.entry === null) {
+  }
+
+  // No results
+  else if (props.word.state.entry === null) {
     return (
       <Box m={4}>
         <Grid container direction='column' alignItems='center' spacing={3}>
@@ -410,7 +414,10 @@ function WordPage(props: { word: Word; color: string }) {
         </Grid>
       </Box>
     );
-  } else {
+  }
+
+  // Results founds
+  else {
     const entry = props.word.state.entry;
 
     // Ignore "Wikipedia definition" entries that are often redundant
@@ -450,46 +457,7 @@ function WordPage(props: { word: Word; color: string }) {
             )}
           </Grid>
 
-          {/* Meanings */}
-          <Grid item container direction='column'>
-            {meanings.map((m, i) => (
-              <Grid item container direction='row' alignItems='baseline' spacing={1} wrap='nowrap'>
-                <Grid item>
-                  <Typography variant='body2' style={{ color: 'grey' }}>
-                    {i + 1}.
-                  </Typography>
-                </Grid>
-
-                {m.parts_of_speech.length > 0 && (
-                  <Grid item>
-                    <span
-                      style={{
-                        textTransform: 'uppercase',
-                        fontSize: '0.65rem',
-                        color: 'limegreen',
-                        border: '1px solid limegreen',
-                        borderRadius: '2px',
-                        padding: '0.05rem 0.2rem'
-                      }}
-                    >
-                      {m.parts_of_speech[0]}
-                    </span>
-                  </Grid>
-                )}
-
-                <Grid item>
-                  <Typography variant='body2' style={{ fontFamily: '"Roboto Slab", serif' }}>
-                    {m.english_definitions
-                      // Capitalize the first word
-                      .map((def, i) =>
-                        i === 0 ? def.charAt(0).toUpperCase() + def.substring(1) : def
-                      )
-                      .join('; ')}
-                  </Typography>
-                </Grid>
-              </Grid>
-            ))}
-          </Grid>
+          <Meanings meanings={meanings} />
 
           {/* Jisho link */}
           <Grid item style={{ display: 'flex', flexWrap: 'nowrap', justifyContent: 'flex-end' }}>
@@ -510,6 +478,64 @@ function WordPage(props: { word: Word; color: string }) {
       </Box>
     );
   }
+}
+
+function Meanings(props: { meanings: JishoApiEntry['senses'] }) {
+  // Group meanings by categories
+
+  const groupedMeanings = _.groupBy(props.meanings, (m) =>
+    m.parts_of_speech.length > 0 ? m.parts_of_speech[0] : ''
+  );
+
+  let counter = 0;
+
+  return (
+    <Grid item container direction='column'>
+      {Object.entries(groupedMeanings).map(([category, meanings]) => (
+        <>
+          {/* Category */}
+          {category !== '' && (
+            <Grid item>
+              <span
+                style={{
+                  textTransform: 'uppercase',
+                  fontSize: '0.65rem',
+                  color: 'limegreen',
+                  border: '1px solid limegreen',
+                  borderRadius: '2px',
+                  padding: '0.05rem 0.2rem'
+                }}
+              >
+                {category}
+              </span>
+            </Grid>
+          )}
+
+          {/* Meanings */}
+          {meanings.map((m) => (
+            <Grid item container direction='row' alignItems='baseline' spacing={1} wrap='nowrap'>
+              <Grid item>
+                <Typography variant='body2' style={{ color: 'grey' }}>
+                  {++counter}.
+                </Typography>
+              </Grid>
+
+              <Grid item>
+                <Typography variant='body2' style={{ fontFamily: '"Roboto Slab", serif' }}>
+                  {m.english_definitions
+                    // Capitalize the first word
+                    .map((def, i) =>
+                      i === 0 ? def.charAt(0).toUpperCase() + def.substring(1) : def
+                    )
+                    .join('; ')}
+                </Typography>
+              </Grid>
+            </Grid>
+          ))}
+        </>
+      ))}
+    </Grid>
+  );
 }
 
 // Japanese words possibly containing kanjis decorated with their hiragana readings
