@@ -153,6 +153,8 @@ export function App(props: { port: chrome.runtime.Port }) {
 
       // Save the new state
 
+      setSelectedWordIndex(0);
+
       setCurrentSearch({
         words: words.map((word, i) => ({
           value: word,
@@ -161,8 +163,6 @@ export function App(props: { port: chrome.runtime.Port }) {
         })),
         selection
       });
-
-      setSelectedWordIndex(0);
 
       // Send to the background script
 
@@ -176,8 +176,6 @@ export function App(props: { port: chrome.runtime.Port }) {
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
-      console.log(event);
-
       if (!currentSearch) {
         return;
       }
@@ -396,6 +394,7 @@ function Tooltip(props: {
 
 // Definition for a single word
 function WordPage(props: { word: Word; color: string }) {
+  console.log(123, props);
   // Loading
   if (props.word.state.type === 'loading') {
     return (
