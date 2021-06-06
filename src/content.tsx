@@ -31,7 +31,6 @@ port.onMessage.addListener((message: Message) => {
 const CONTAINER_ID = 'instant-jisho-root-container';
 
 function render(on: boolean) {
-  console.log('render', on);
   let rootContainer = document.getElementById(CONTAINER_ID);
 
   if (on) {

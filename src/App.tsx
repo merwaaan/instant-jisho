@@ -341,17 +341,18 @@ function Tooltip(props: {
                         disableElevation
                         size='small'
                         startIcon={<ArrowBack />}
-                        onMouseEnter={() => props.onHoverWord(props.selectedWordIndex - 1)}
-                        onMouseLeave={() => props.onHoverWord(undefined)}
                         style={{
                           justifyContent: 'flex-start',
+                          fontSize: '24px',
                           fontWeight: 'bold',
-                          color: getColor(props.selectedWordIndex - 1, wordCount),
-                          border: '1px solid'
+                          border: '1px solid',
+                          color: getColor(props.selectedWordIndex - 1, wordCount)
                         }}
+                        onMouseEnter={() => props.onHoverWord(props.selectedWordIndex - 1)}
+                        onMouseLeave={() => props.onHoverWord(undefined)}
                         onClick={() => props.onChangeWord(props.selectedWordIndex - 1)}
                       >
-                        {prevWord.value}
+                        <Typography style={{ wordBreak: 'keep-all' }}>{prevWord.value}</Typography>
                       </Button>
                     )}
                   </Grid>
@@ -363,17 +364,18 @@ function Tooltip(props: {
                         disableElevation
                         size='small'
                         endIcon={<ArrowForward />}
-                        onMouseEnter={() => props.onHoverWord(props.selectedWordIndex + 1)}
-                        onMouseLeave={() => props.onHoverWord(undefined)}
                         style={{
                           justifyContent: 'flex-end',
+                          fontSize: '24px',
                           fontWeight: 'bold',
-                          color: getColor(props.selectedWordIndex + 1, wordCount),
-                          border: '1px solid'
+                          border: '1px solid',
+                          color: getColor(props.selectedWordIndex + 1, wordCount)
                         }}
+                        onMouseEnter={() => props.onHoverWord(props.selectedWordIndex + 1)}
+                        onMouseLeave={() => props.onHoverWord(undefined)}
                         onClick={() => props.onChangeWord(props.selectedWordIndex + 1)}
                       >
-                        {nextWord.value}
+                        <Typography style={{ wordBreak: 'keep-all' }}>{nextWord.value}</Typography>
                       </Button>
                     )}
                   </Grid>
@@ -394,7 +396,6 @@ function Tooltip(props: {
 
 // Definition for a single word
 function WordPage(props: { word: Word; color: string }) {
-  console.log(123, props);
   // Loading
   if (props.word.state.type === 'loading') {
     return (
@@ -419,12 +420,12 @@ function WordPage(props: { word: Word; color: string }) {
       <Box m={4}>
         <Grid container direction='column' alignItems='center' spacing={3}>
           <Grid item>
-            <Typography variant='body2' style={{ color: '#bbbbbb' }}>
+            <Typography variant='body2' style={{ fontSize: '18px', color: '#bbbbbb' }}>
               No results for <span style={{ fontWeight: 'bold' }}>{props.word.value}</span>
             </Typography>
           </Grid>
           <Grid item>
-            <span style={{ color: '#bbbbbb', fontFamily: 'monospace' }}>
+            <span style={{ fontSize: '18px', fontFamily: 'monospace', color: '#bbbbbb' }}>
               {getKaomoji(props.word.value)}
             </span>
           </Grid>
@@ -449,7 +450,7 @@ function WordPage(props: { word: Word; color: string }) {
     const romaji = entryToRomaji(entry);
 
     return (
-      <Box m={1}>
+      <Box m={2} mb={1}>
         <Grid container direction='column' spacing={3}>
           <Grid
             item
@@ -467,7 +468,7 @@ function WordPage(props: { word: Word; color: string }) {
             {/* Romaji */}
             {romaji && (
               <Grid item>
-                <Typography variant='h6' color='textSecondary'>
+                <Typography variant='h6' color='textSecondary' style={{ fontSize: '20px' }}>
                   {romaji}
                 </Typography>
               </Grid>
@@ -483,10 +484,10 @@ function WordPage(props: { word: Word; color: string }) {
               target='_blank'
               rel='noreferrer'
               color='textSecondary'
-              style={{ display: 'flex', flexWrap: 'nowrap' }}
+              style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap' }}
             >
-              <MenuBookRounded fontSize='small' style={{ marginRight: '0.5rem' }} />
-              <Typography variant='body2' style={{ fontSize: '0.8rem' }}>
+              <MenuBookRounded fontSize='default' style={{ marginRight: '4px' }} />
+              <Typography variant='body2' style={{ fontSize: '12px' }}>
                 jisho.org page
               </Typography>
             </Link>
@@ -507,7 +508,7 @@ function Meanings(props: { meanings: JishoApiEntry['senses'] }) {
   let counter = 0;
 
   return (
-    <Grid item container direction='column'>
+    <Grid item container direction='column' spacing={1}>
       {Object.entries(groupedMeanings).map(([category, meanings]) => (
         <>
           {/* Category */}
@@ -516,11 +517,12 @@ function Meanings(props: { meanings: JishoApiEntry['senses'] }) {
               <span
                 style={{
                   textTransform: 'uppercase',
-                  fontSize: '0.65rem',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
                   color: 'limegreen',
                   border: '1px solid limegreen',
                   borderRadius: '2px',
-                  padding: '0.05rem 0.2rem'
+                  padding: '2px 4px'
                 }}
               >
                 {category}
@@ -532,13 +534,16 @@ function Meanings(props: { meanings: JishoApiEntry['senses'] }) {
           {meanings.map((m) => (
             <Grid item container direction='row' alignItems='baseline' spacing={1} wrap='nowrap'>
               <Grid item>
-                <Typography variant='body2' style={{ color: 'grey' }}>
+                <Typography variant='body2' style={{ fontSize: '14px', color: 'grey' }}>
                   {++counter}.
                 </Typography>
               </Grid>
 
               <Grid item>
-                <Typography variant='body2' style={{ fontFamily: '"Roboto Slab", serif' }}>
+                <Typography
+                  variant='body2'
+                  style={{ fontSize: '14px', fontFamily: '"Roboto Slab", serif' }}
+                >
                   {m.english_definitions
                     // Capitalize the first word
                     .map((def, i) =>
@@ -562,12 +567,12 @@ function Furigana(props: { readings: FuriganaMatch[] }) {
       {props.readings.map((match) => (
         <Grid item container direction='column' alignItems='center'>
           <Grid item>
-            <Typography variant='h4' style={{ wordBreak: 'keep-all' }}>
+            <Typography variant='h4' style={{ fontSize: '32px', wordBreak: 'keep-all' }}>
               {match.w}
             </Typography>
           </Grid>
           <Grid item>
-            <Typography variant='subtitle1' style={{ wordBreak: 'keep-all' }}>
+            <Typography variant='subtitle1' style={{ fontSize: '16px', wordBreak: 'keep-all' }}>
               {match.r}
             </Typography>
           </Grid>
