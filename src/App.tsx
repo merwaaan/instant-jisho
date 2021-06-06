@@ -175,6 +175,22 @@ export function App(props: { port: chrome.runtime.Port }) {
       );
     };
 
+    const onKeyUp = (event: KeyboardEvent) => {
+      console.log(event);
+
+      if (!currentSearch) {
+        return;
+      }
+
+      if (event.code === 'ArrowLeft') {
+        setSelectedWordIndex((prevIndex) => (selectedWordIndex > 0 ? prevIndex - 1 : prevIndex));
+      } else if (event.code === 'ArrowRight') {
+        setSelectedWordIndex((prevIndex) =>
+          selectedWordIndex < currentSearch.words.length - 1 ? prevIndex + 1 : prevIndex
+        );
+      }
+    };
+
     const onMessage = (message: Message) => {
       console.log(message);
       if (message.type === 'translate-response') {
@@ -202,14 +218,16 @@ export function App(props: { port: chrome.runtime.Port }) {
     };
 
     document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('keyup', onKeyUp);
     props.port.onMessage.addListener(onMessage);
 
     // Clean up listeners
     return () => {
       document.removeEventListener('mouseup', onMouseUp);
+      document.removeEventListener('keyup', onKeyUp);
       props.port.onMessage.removeListener(onMessage);
     };
-  }, [currentSearch, props.port]);
+  }, [currentSearch, props.port, selectedWordIndex]);
 
   // Render
 
